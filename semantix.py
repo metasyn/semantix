@@ -1,10 +1,13 @@
 #from __future__ import division
-from math import log
+import re
 from nltk.probability import FreqDist
 from scipy.sparse import lil_matrix
-from numpy import divide, log
+from numpy import log
+from scipy.linalg import svd
+from scipy.spatial.distance import cosine
 
-import re
+
+
 
 # open the estonian open subtitles corpus
 # strip non-alpha characters
@@ -14,15 +17,13 @@ infile = open("500k.txt", "r")
 raw = infile.read()
 infile.close()
 
-
-
 # define parameters
 windowSize = 1
 Nwords = 40000
 Ncontext = 2000
 
 # terms = columns, context = rows (dimensions of the matrix)
-words = [w.lower() for w in raw.split() if re.match(ur"^[\W\d_]+$", w)][:100000]
+words = [w.lower() for w in raw.split() if re.match(ur"^[^\W\d_]+$", w)][:100000]
 vocab = FreqDist(words)
 terms = vocab.keys()[:Nwords]
 context = vocab.keys()[:Ncontext]
@@ -52,5 +53,7 @@ m[m!=0] = log(m[m!=0])
 # only need positive PMI 
 m[m < 0] = 0.
 
-# now m is a matrix of +PMI values
+# scipy svd
+U, s, Vh = svd(m.A, full_matrices=False)
+
 
