@@ -1,68 +1,73 @@
-# -*- coding: utf-8 -*-
 """
-Created on Mon Feb 17 15:09:52 2014
+Semantic Vectors Matrix Maker
 
-@author: xander
+* uses positive pointeise mutual information values 
+* requires NLTK, Scipy & Numpy
+
+@author: xander johnson
 """
+
 import re
-from nltk.probability import FreqDist
 from scipy.sparse import lil_matrix
-import divisi2
-from numpy import log as npl
+from numpy import log as numpy_log
+from nltk.probability import FreqDist
 
+def createTokensFromText(infile):
+    """ Returns a tokenzied version of a text file (as a list)."""
+    raw_text = infile.read()
+    tokens = [word.lower() for word in raw_text.split() if
+    re.match(ur"^[^\W\d_]+$", word, re.UNICODE)]
+    return tokens 
 
-# open the estonian open subtitles corpus
-# strip non-alpha characters
-# set case to lower
+def createMatrix(rows, columns, tokens, window_size=1):
+    """
+    The rows & columns should be numbers, which will represent the
+    dimensions of the matrix. The tokens need to be seperated word tokens in a
+    list format. This function will return a sparse matrix of +PMI values.
 
-infile = open("walden.txt", "r")
-raw = infile.read()
-infile.close()
+    The window_size is initialized at 1 for optimal results (see Bullinaria &
+    Levy 2007 for an in-depth comparison of window size comparisons).
+    """
 
-# define parameters
-windowSize = 1
-Nwords = 4000
-Ncontexts = 200
+    # We choose the most frequest tokens, then define the matrix dimensions.
+    vocabulary = FreqDist(tokens)
+    terms = vocabulary.keys()[:rows]
+    contexts = vocabulary.keys()[:columns] 
+    corpus_length = len(tokens)
+    tenth_of_corpus = corpus_length / 10
+    percent_counter = 0
 
-print "Processing text..."
-# terms = columns, contexts = rows (dimensions of the matrix)
-words = [w.lower() for w in raw.split() if re.match(ur"^[^\W\d_]+$", w)][:100000]
-vocab = FreqDist(words)
-terms = vocab.keys()[:Nwords]
-contexts = vocab.keys()[:Ncontexts]
-N = len(words)
+    print "Creating the raw count matrix...\n"
+    matrix = lil_matrix((rows, columns))
+    for i in range(2, corpus_length-2):
+        # this is just for a progress check
+        if i % tenth_of_corpus == 0:
+            percent_counter += 10
+            print percent_counter, "%"
 
-print "Creating count matrix..."
-# create sparse matrix
-m = lil_matrix((Nwords, Ncontexts))
-for i in range(2, N-2):
-    # progress check
-    if i % 1000 == 0:
-        print i
-    # loop through windows, add to matrix
-    if words[i] in terms:
-        indices = [i-2,i-1,i+1,i+2]
-        for j in indices:
-            if words[j] in contexts:
-                m[terms.index(words[i]),contexts.index(words[j])] += 1.
+        # here is where we actually loop through everything
+        if tokens[i] in terms:
+            indicies = [i-window_size, i+window_size]
+            for j in indicies:
+                if tokens[j] in contexts:
+                    matrix[terms.index(tokens[i]), contexts.index(tokens[j])]+=1
+    
+    # Now we want to calculate the positive pointwise mutual information from
+    # the raw counts - PMI is defined as:
+    # pmi(x; y) = log( p(x,y) / p(x)p(y)
+    #
+    # http://en.wikipedia.org/wiki/Pointwise_mutual_information
+    #
+    # 1. Normalize the values by diving the sum of the matrix.
+    # 2. Divide by the dot product of row & column summations.
+    # 3. Take the logarithm
+    # 4. Set all negative numbers to zero to only retain positive values. 
+    
+    print "\n== Generating +PMI values =="
+    matrix = matrix/matrix.sum()                                    # 1
+    matrix = matrix/lil_matrix(matrix.sum(1).dot(matrix.sum(0)))    # 2
+    matrix[matrix != 0] = numpy_log(matrix[matrix!=0])              # 3
+    matrix[matrix < 0] = 0.                                         # 4
 
-print "== Generating +PMI =="
-print "Normalizing..."
+    return matrix
 
-m = m/m.sum()
-column_sum = m.sum(0)
-row_sum = m.sum(1)
-denominator = lil_matrix(row_sum.dot(column_sum))
-m = m/denominator
-
-print "Getting log..."
-m[m!=0] = npl(m[m!=0])
-m[m < 0] = 0.
-
-print " == SVD =="
-divisi_sparse = divisi2.SparseMatrix(m.A, row_labels=terms, col_labels=contexts)
-U, S, V = divisi_sparse.svd(k=100)
-
-# two, three million in english
-# compute nearest neighbors or cosine distance
-# magnus sahlgren
