@@ -30,7 +30,7 @@ def createMatrix(rows, columns, tokens, window_size=1):
     list format. This function will return a sparse matrix of +PMI values.
 
     The window_size is initialized at 1 for optimal results (see Bullinaria &
-    Levy 2007 for an in-depth comparison of window size comparisons).
+    Levy 2007 for an in-depth comparison of window sizes).
     """
     print "Creating frequency distribution & setting matrix dimensions..."
     # We choose the most frequest tokens, then define the matrix dimensions.
