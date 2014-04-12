@@ -9,14 +9,18 @@ Semantic Vectors Matrix Maker
 
 import re
 from scipy.sparse import lil_matrix
+from numpy import save as npsave
 from numpy import log as numpy_log
 from nltk.probability import FreqDist
 
 def createTokensFromText(infile):
     """ Returns a tokenzied version of a text file (as a list)."""
+    print "Reading file..."
     raw_text = infile.read()
+    print "Cleaning & tokenizing text..."
     tokens = [word.lower() for word in raw_text.split() if
     re.match(ur"^[^\W\d_]+$", word, re.UNICODE)]
+    print "Text tokenized..."
     return tokens 
 
 def createMatrix(rows, columns, tokens, window_size=1):
@@ -28,7 +32,7 @@ def createMatrix(rows, columns, tokens, window_size=1):
     The window_size is initialized at 1 for optimal results (see Bullinaria &
     Levy 2007 for an in-depth comparison of window size comparisons).
     """
-
+    print "Creating frequency distribution & setting matrix dimensions..."
     # We choose the most frequest tokens, then define the matrix dimensions.
     vocabulary = FreqDist(tokens)
     terms = vocabulary.keys()[:rows]
@@ -70,4 +74,21 @@ def createMatrix(rows, columns, tokens, window_size=1):
     matrix[matrix < 0] = 0.                                         # 4
 
     return matrix
+
+def main():
+    print('+'*20)
+    print('PPMI Matrix Maker')
+    infile_path = raw_input("Path to input text file: ")
+    rows = int(raw_input("Number of rows in matrix: "))
+    columns = int(raw_input("Number of columns in matrix: "))
+    infile = open(infile_path, "r")
+    tokens = createTokensFromText(infile)
+    matrix = createMatrix(rows, columns, tokens)
+    print('+'*20)
+    npsave(open("ppmi_matrix_array.npy", "w"), matrix.A)
+    print("Matrix is saved as a .npy file in the current directory")
+
+if __name__ == "__main__":
+    main()
+
 
